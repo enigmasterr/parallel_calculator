@@ -73,23 +73,54 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 	request := new(Request)
 	defer r.Body.Close()
 	err := json.NewDecoder(r.Body).Decode(&request)
-	fmt.Println(request)
+	log.Println("get request - ", request)
 	if err != nil {
+		type ErrStr struct {
+			Error string `json:"error"`
+		}
+		ansJson := ErrStr{Error: "Request is not valid"}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ansJson)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	result, err := calculation.Calc(request.Expression)
-	fmt.Println(result)
+	//fmt.Println(result)
 	if err != nil {
+		// "error": "Expression is not valid"
+		type ErrStr struct {
+			Error string `json:"error"`
+		}
+		w.Header().Set("Content-Type", "application/json")
 		if errors.Is(err, calculation.ErrInvalidExpression) {
-			fmt.Fprintf(w, "err: %s", err.Error())
+			ansJson := ErrStr{Error: "Expression is not valid"}
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ansJson)
+			log.Printf("err: %s", err.Error())
+		} else if errors.Is(err, calculation.ErrStrangeSymbols) {
+			ansJson := ErrStr{Error: "Expression is not valid"}
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(ansJson)
+			log.Printf("err: %s", err.Error())
 		} else {
-			fmt.Fprintf(w, "unknown err")
+			ansJson := ErrStr{Error: "Internal server error"}
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ansJson)
+			log.Printf("err: %s", err.Error())
 		}
 
 	} else {
-		fmt.Fprintf(w, "result: %f", result)
+		type ResStr struct {
+			Result string `json:"result"`
+		}
+		convRes := fmt.Sprintf("%f", result)
+		ansJson := ResStr{Result: string(convRes)}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(ansJson)
+		log.Printf("send json {\"result\": \"%s\"}", string(convRes))
+		// fmt.Fprintf(w, "result: %f", result)
 	}
 }
 

@@ -2,6 +2,7 @@ package calculation
 
 import (
 	"strconv"
+	"strings"
 )
 
 func Calc(expression string) (float64, error) {
@@ -16,6 +17,16 @@ func Calc(expression string) (float64, error) {
 	var ans []string
 	var st []string
 	num := ""
+	charset := "+-*/()0123456789"
+	strange := false
+	for _, sim := range expression {
+		if !strings.ContainsRune(charset, sim) {
+			strange = true
+		}
+	}
+	if strange {
+		return 0, ErrStrangeSymbols
+	}
 	for _, sim := range expression {
 		if sim == '(' {
 			if len(num) > 0 {
