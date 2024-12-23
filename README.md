@@ -1,5 +1,7 @@
 git clone https://github.com/enigmasterr/calchttp.git - склонировать репозиторий
-зайти в каталог calchttp
+
+зайти в каталог calchttp - cd calchttp
+
 go run cmd/main.go - запуск проекта, по умолчанию порт 8080, либо можно получить через переменную окружения
 
 запускаем тесты (тесты запускались в windows 11)- 
@@ -14,6 +16,7 @@ curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"(2+3)*9\
 программа логирует запросы и ответы в консоль
 
 также в папке pkg/calculation/ добавлены http тесты их всего 3
-чтобы запустить все тесты в том числе и http, нужно зайти в папку pkg/calculation/ и ввести
-go test -v
+
+чтобы запустить все тесты в том числе и http, нужно зайти в папку pkg/calculation/ и ввести go test -v
+
 чтобы зайти в папку нужно набрать cd pkg/calculation/
