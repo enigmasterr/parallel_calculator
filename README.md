@@ -5,12 +5,19 @@ git clone https://github.com/enigmasterr/calchttp.git - склонировать
 go run cmd/main.go - запуск проекта, по умолчанию порт 8080, либо можно получить через переменную окружения
 
 запускаем тесты (тесты запускались в windows 11)- 
+
 curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"2+2*9\"}" http://localhost:8080/api/v1/calculate
+
 curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"(2+2*9\"}" http://localhost:8080/api/v1/calculate
+
 curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"yy2+2*9\"}" http://localhost:8080/api/v1/calculate
+
 curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"2+2*9\"}" http://localhost:8080/api/v1/calculate
+
 curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"/\"}" http://localhost:8080/api/v1/calculate
+
 curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"1/2\"}" http://localhost:8080/api/v1/calculate
+
 curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"(2+3)*9\"}" http://localhost:8080/api/v1/calculate
 
 программа логирует запросы и ответы в консоль
