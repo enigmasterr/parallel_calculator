@@ -8,9 +8,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/enigmasterr/calchttp/pkg/calculation"
+
+	"github.com/gorilla/mux"
 )
 
 type Config struct {
@@ -65,27 +70,222 @@ func (a *Application) Run() error {
 	}
 }
 
+type TaskF struct {
+	ID             int     `json:"id"`
+	Arg1           float64 `json:"arg1"`
+	Arg2           float64 `json:"arg2"`
+	Operation      string  `json:"operation"`
+	Operation_time int     `json:"operation_time"`
+}
+type Task struct {
+	Task TaskF `json:"task"`
+}
+
+var allTasks map[int]TaskF
+var allresults map[int]float64
+
+func Calc(expression string, id int) (float64, error) {
+	prior := map[string]int{
+		"(": 0,
+		")": 1,
+		"+": 2,
+		"-": 2,
+		"*": 3,
+		"/": 3,
+	}
+	var ans []string
+	var st []string
+	num := ""
+	charset := "+-*/()0123456789"
+	strange := false
+	for _, sim := range expression {
+		if !strings.ContainsRune(charset, sim) {
+			strange = true
+		}
+	}
+	if strange {
+		return 0, calculation.ErrStrangeSymbols
+	}
+	for _, sim := range expression {
+		if sim == '(' {
+			if len(num) > 0 {
+				ans = append(ans, num)
+			}
+			st = append(st, string(sim))
+		} else {
+			if sim == '+' || sim == '-' || sim == '*' || sim == '/' {
+				if num != "" {
+					ans = append(ans, num)
+					num = ""
+				}
+				if len(st) == 0 {
+					st = append(st, string(sim))
+				} else {
+					if prior[string(sim)] > prior[st[len(st)-1]] {
+						st = append(st, string(sim))
+					} else {
+						for len(st) > 0 && prior[string(sim)] <= prior[st[len(st)-1]] {
+							ans = append(ans, st[len(st)-1])
+							st = st[:len(st)-1]
+						}
+						st = append(st, string(sim))
+					}
+				}
+			} else if sim == ')' {
+				if len(num) > 0 {
+					ans = append(ans, num)
+					num = ""
+				}
+				for st[len(st)-1] != "(" {
+					ans = append(ans, st[len(st)-1])
+					st = st[:len(st)-1]
+				}
+				st = st[:len(st)-1]
+			} else {
+				num += string(sim)
+			}
+		}
+	}
+	if num != "" {
+		ans = append(ans, num)
+		num = ""
+	}
+	for len(st) > 0 {
+		if st[len(st)-1] == "(" || st[len(st)-1] == ")" {
+			return 0, calculation.ErrInvalidExpression
+		} else {
+			ans = append(ans, st[len(st)-1])
+			st = st[:len(st)-1]
+		}
+	}
+	fmt.Println(ans) // стек с выражением
+	var stk []float64
+	for _, v := range ans {
+		if v == "+" || v == "-" || v == "*" || v == "/" {
+			if len(stk) < 2 {
+				return 0, calculation.ErrInvalidExpression
+			}
+			a := stk[len(stk)-1]
+			stk = stk[:len(stk)-1]
+			b := stk[len(stk)-1]
+			stk = stk[:len(stk)-1]
+			if v == "+" {
+				task := TaskF{ID: id, Arg1: b, Arg2: a, Operation: "+", Operation_time: 1}
+				allTasks[id] = task
+				//stk = append(stk, b+a) // нужно отправить таск на "+"
+			} else if v == "-" {
+				task := TaskF{ID: id, Arg1: b, Arg2: a, Operation: "-", Operation_time: 1}
+				allTasks[id] = task
+				//stk = append(stk, b-a) // нужно отправить таск на "-"
+			} else if v == "*" {
+				task := TaskF{ID: id, Arg1: b, Arg2: a, Operation: "+", Operation_time: 1}
+				allTasks[id] = task
+				//stk = append(stk, b*a) // нужно отправить таск на "*"
+			} else if v == "/" {
+				if a == 0 {
+					return 0, calculation.ErrDivisionByZero
+				}
+				task := TaskF{ID: id, Arg1: b, Arg2: a, Operation: "/", Operation_time: 1}
+				allTasks[id] = task
+				//stk = append(stk, b/a) // нужно отправить таск на "/"
+			}
+			for {
+				addr := fmt.Sprintf("http://localhost:8080/internal/getresult/%d", id)
+				resp, err := http.Get(addr)
+				if err != nil {
+					fmt.Errorf("Some trouble with getting answer")
+				}
+				if resp.StatusCode == http.StatusOK {
+					type resJSON struct {
+						ID     int     `json:"id"`
+						Result float64 `json:"result"`
+					}
+					var res resJSON
+					err = json.NewDecoder(resp.Body).Decode(&res)
+					fmt.Println(res)
+					if err != nil {
+						return 0, err
+					}
+					stk = append(stk, res.Result)
+					break
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
+			// надо получить ответы и закинуть в стек
+			// stk = append(stk, res)
+		} else {
+			num, _ := strconv.ParseFloat(v, 64)
+			stk = append(stk, num)
+		}
+	}
+	if len(stk) != 1 {
+		return 0, calculation.ErrInvalidExpression
+	}
+	return stk[0], nil
+}
+
+// func getResult(id int) (float64, error) {
+// 	resp, err := http.Get("http://localhost:8080/internal/getresult")
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	type resJSON struct {
+// 		ID     int     `json:"id"`
+// 		Result float64 `json:"result"`
+// 	}
+// 	var res resJSON
+// 	err = json.NewDecoder(resp.Body).Decode(&res)
+// 	fmt.Println(res)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	return res.Result, nil
+// }
+
 type Request struct {
 	Expression string `json:"expression"`
 }
+type expressionJSON struct {
+	ID     int     `json:"id"`
+	Status int     `json:"status"`
+	Result float64 `json:"result"`
+}
+type Expressions struct {
+	Expressions []expressionJSON `json:"expressions"`
+}
+
+var allExpressions Expressions
+var curID int
 
 func CalcHandler(w http.ResponseWriter, r *http.Request) {
+	var mu sync.Mutex
+	mu.Lock()
+	curID++
+	mu.Unlock()
 	request := new(Request)
 	defer r.Body.Close()
 	err := json.NewDecoder(r.Body).Decode(&request)
 	log.Println("get request - ", request)
+
+	type AnsJSON struct {
+		ID int `json:"id"`
+	}
+
 	if err != nil {
-		type ErrStr struct {
-			Error string `json:"error"`
-		}
-		ansJson := ErrStr{Error: "Request is not valid"}
+		newExpres := expressionJSON{ID: curID, Status: http.StatusBadRequest, Result: 0}
+		allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+
+		// type ErrStr struct {
+		// 	Error string `json:"error"`
+		// }
+		// ansJson := ErrStr{Error: "Request is not valid"}
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ansJson)
+		json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	result, err := calculation.Calc(request.Expression)
+	result, err := Calc(request.Expression, curID)
 	//fmt.Println(result)
 	if err != nil {
 		// "error": "Expression is not valid"
@@ -94,37 +294,163 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if errors.Is(err, calculation.ErrInvalidExpression) {
-			ansJson := ErrStr{Error: "Expression is not valid"}
+			newExpres := expressionJSON{ID: curID, Status: http.StatusBadRequest, Result: 0}
+			allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+
+			//ansJson := ErrStr{Error: "Expression is not valid"}
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(ansJson)
+			json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 			log.Printf("err: %s", err.Error())
 		} else if errors.Is(err, calculation.ErrStrangeSymbols) {
-			ansJson := ErrStr{Error: "Expression is not valid"}
+			newExpres := expressionJSON{ID: curID, Status: http.StatusUnprocessableEntity, Result: 0}
+			allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+
+			// ansJson := ErrStr{Error: "Expression is not valid"}
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(ansJson)
+			json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 			log.Printf("err: %s", err.Error())
 		} else {
-			ansJson := ErrStr{Error: "Internal server error"}
+			newExpres := expressionJSON{ID: curID, Status: http.StatusInternalServerError, Result: 0}
+			allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+
+			// ansJson := ErrStr{Error: "Internal server error"}
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(ansJson)
+			json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 			log.Printf("err: %s", err.Error())
 		}
 
 	} else {
-		type ResStr struct {
-			Result string `json:"result"`
-		}
-		convRes := fmt.Sprintf("%f", result)
-		ansJson := ResStr{Result: string(convRes)}
+		// type ResStr struct {
+		// 	Result string `json:"result"`
+		// }
+
+		newExpres := expressionJSON{ID: curID, Status: http.StatusOK, Result: result}
+		allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+
+		// convRes := fmt.Sprintf("%f", result)
+		// ansJson := ResStr{Result: string(convRes)}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(ansJson)
-		log.Printf("send json {\"result\": \"%s\"}", string(convRes))
+		json.NewEncoder(w).Encode(AnsJSON{ID: curID})
+		log.Printf("send json {\"result\": \"%s\"}", string(fmt.Sprintf("%d", curID)))
 		// fmt.Fprintf(w, "result: %f", result)
+	}
+	fmt.Println(allExpressions) // just for debug, delete after all
+}
+
+func ExprHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(allExpressions)
+	log.Printf("send JSON {\"expressions\": [{},{},{}...]}")
+}
+
+func ExprIDHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	type AnsJSON struct {
+		Expression expressionJSON `json:"expression"`
+	}
+	found := false
+	for _, expresn := range allExpressions.Expressions {
+		if expresn.ID == id {
+			found = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(AnsJSON{Expression: expresn})
+			break
+		}
+	}
+	// Не найден ID
+	if !found {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(AnsJSON{Expression: expressionJSON{ID: id, Status: 404, Result: 0}})
+	}
+}
+
+//	type TaskF struct {
+//		ID             int     `json:"id"`
+//		Arg1           float64 `json:"arg1"`
+//		Arg2           float64 `json:"arg2"`
+//		Operation      string  `json:"operation"`
+//		Operation_time int     `json:"operation_time"`
+//	}
+//
+//	type Task struct {
+//		Task TaskF `json:"task"`
+//	}
+
+func TaskHandlerGET(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "Send answer as JSON file: \"task\": id, arg1, arg2, oper, oper_time")
+	var task TaskF
+	if len(allTasks) > 0 {
+		for _, value := range allTasks {
+			task = value
+			break // Выходим из цикла после первого элемента
+		}
+	}
+	delete(allTasks, task.ID)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(task)
+}
+
+func TaskHandlerPOST(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Get some JSON file with answer: {\"id\", \"result\"}")
+	type taskAns struct {
+		ID     int     `json:"id"`
+		Result float64 `json:"result"`
+	}
+
+	var ans taskAns
+	err := json.NewDecoder(r.Body).Decode(&ans)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	allresults[ans.ID] = ans.Result
+}
+
+func GetResultOperation(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	type resJSON struct {
+		ID     int     `json:"id"`
+		Result float64 `json:"result"`
+	}
+	if res, found := allresults[id]; found {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(resJSON{ID: id, Result: res})
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(resJSON{ID: id, Result: 0})
 	}
 }
 
 func (a *Application) RunServer() error {
-	http.HandleFunc("/api/v1/calculate", CalcHandler)
-	return http.ListenAndServe(":"+a.config.Addr, nil)
+	router := mux.NewRouter()
+	router.HandleFunc("/api/v1/calculate", CalcHandler).Methods("GET", "POST")
+	router.HandleFunc("/api/v1/expressions", ExprHandler).Methods("GET")
+	router.HandleFunc("/api/v1/expressions/:{id}", ExprIDHandler).Methods("GET")
+	router.HandleFunc("/internal/task", TaskHandlerGET).Methods("GET")
+	router.HandleFunc("/internal/task", TaskHandlerPOST).Methods("POST")
+	router.HandleFunc("/internal/getresult/{id}", GetResultOperation).Methods("GET")
+	// http.HandleFunc("/api/v1/calculate", CalcHandler)
+	// http.HandleFunc("/api/v1/expressions", ExprHandler)
+	// http.HandleFunc("/api/v1/expressions/:id", ExprIDHandler)
+	return http.ListenAndServe(":"+a.config.Addr, router)
 }
