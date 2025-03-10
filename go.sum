@@ -1,4 +1,2 @@
-github.com/enigmasterr/calchttp v0.0.0-20241224050919-beafb1eeb27c h1:y48RV2/L8MMV/JvX7CWZzwW+e2XHOflz0wt1+lf4SRQ=
-github.com/enigmasterr/calchttp v0.0.0-20241224050919-beafb1eeb27c/go.mod h1:wh4U9C6JO1X3Z906kIgl6d+I+CsABCdX9C/diR8C/NM=
 github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
 github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=

@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/enigmasterr/calchttp/pkg/calculation"
+	"github.com/enigmasterr/parallel_calculator/pkg/calculation"
 
 	"github.com/gorilla/mux"
 )
@@ -81,8 +81,8 @@ type Task struct {
 	Task TaskF `json:"task"`
 }
 
-var allTasks map[int]TaskF
-var allresults map[int]float64
+var allTasks = map[int]TaskF{}
+var allresults = map[int]float64{}
 
 func Calc(expression string, id int) (float64, error) {
 	prior := map[string]int{
@@ -178,7 +178,7 @@ func Calc(expression string, id int) (float64, error) {
 				allTasks[id] = task
 				//stk = append(stk, b-a) // нужно отправить таск на "-"
 			} else if v == "*" {
-				task := TaskF{ID: id, Arg1: b, Arg2: a, Operation: "+", Operation_time: 1}
+				task := TaskF{ID: id, Arg1: b, Arg2: a, Operation: "*", Operation_time: 1}
 				allTasks[id] = task
 				//stk = append(stk, b*a) // нужно отправить таск на "*"
 			} else if v == "/" {
@@ -191,7 +191,9 @@ func Calc(expression string, id int) (float64, error) {
 			}
 			for {
 				addr := fmt.Sprintf("http://localhost:8080/internal/getresult/%d", id)
+				fmt.Println("Trying to get result of operation")
 				resp, err := http.Get(addr)
+				fmt.Println(resp)
 				if err != nil {
 					fmt.Errorf("Some trouble with getting answer")
 				}
@@ -209,7 +211,7 @@ func Calc(expression string, id int) (float64, error) {
 					stk = append(stk, res.Result)
 					break
 				}
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(2 * time.Second)
 			}
 			// надо получить ответы и закинуть в стек
 			// stk = append(stk, res)
@@ -281,7 +283,7 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		// ansJson := ErrStr{Error: "Request is not valid"}
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(AnsJSON{ID: curID})
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		// http.Error(w, err.Error(), http.StatusBadRequest) не понятно???
 		return
 	}
 
@@ -387,41 +389,59 @@ func ExprIDHandler(w http.ResponseWriter, r *http.Request) {
 //	}
 
 func TaskHandlerGET(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Send answer as JSON file: \"task\": id, arg1, arg2, oper, oper_time")
+	fmt.Println("Task Handler GET ")
 	var task TaskF
-	if len(allTasks) > 0 {
+	if len(allTasks) > 0 { // в этом блоке у нас есть задача
 		for _, value := range allTasks {
 			task = value
 			break // Выходим из цикла после первого элемента
 		}
+		// передаем задачу агенту
+		delete(allTasks, task.ID)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(task)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound) // 404 Not Found
+		if err := json.NewEncoder(w).Encode(TaskF{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
-	delete(allTasks, task.ID)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(task)
 }
 
 func TaskHandlerPOST(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Get some JSON file with answer: {\"id\", \"result\"}")
+	fmt.Println("TaskHandlerPOST ---- ")
 	type taskAns struct {
 		ID     int     `json:"id"`
 		Result float64 `json:"result"`
 	}
 
-	var ans taskAns
-	err := json.NewDecoder(r.Body).Decode(&ans)
-
+	var data taskAns
+	err := json.NewDecoder(r.Body).Decode(&data)
+	fmt.Println("Get answer from agent -- ", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	allresults[ans.ID] = ans.Result
+	log.Printf("Получены данные: %+v\n", data)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Данные успешно получены"))
+	allresults[data.ID] = data.Result
 }
 
 func GetResultOperation(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	id, err := strconv.Atoi(idStr)
+	fmt.Printf("Trying to find result in map id with number %d\n", id)
+	fmt.Println("AllExpressions = ", allExpressions)
+	fmt.Println("AllTasks = ", allTasks)
+	fmt.Println("Allresults = ", allresults)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return

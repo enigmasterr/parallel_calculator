@@ -3,7 +3,7 @@ package calculation_test
 import (
 	"testing"
 
-	"github.com/enigmasterr/calchttp/pkg/calculation"
+	"github.com/enigmasterr/parallel_calculator/pkg/calculation"
 )
 
 func TestCalc(t *testing.T) {

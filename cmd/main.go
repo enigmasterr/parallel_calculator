@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/enigmasterr/calchttp/internal/application"
+	"github.com/enigmasterr/parallel_calculator/internal/application"
 )
 
 func main() {
