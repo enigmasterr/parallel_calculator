@@ -158,7 +158,7 @@ func Calc(expression string, id int) (float64, error) {
 			st = st[:len(st)-1]
 		}
 	}
-	fmt.Println(ans) // стек с выражением
+	fmt.Println("Стек -- ", ans) // стек с выражением
 	var stk []float64
 	for _, v := range ans {
 		if v == "+" || v == "-" || v == "*" || v == "/" {
@@ -209,6 +209,7 @@ func Calc(expression string, id int) (float64, error) {
 						return 0, err
 					}
 					stk = append(stk, res.Result)
+					delete(allresults, res.ID)
 					break
 				}
 				time.Sleep(2 * time.Second)
@@ -223,6 +224,7 @@ func Calc(expression string, id int) (float64, error) {
 	if len(stk) != 1 {
 		return 0, calculation.ErrInvalidExpression
 	}
+	fmt.Println("Hello from calc! ", stk)
 	return stk[0], nil
 }
 
@@ -259,6 +261,23 @@ type Expressions struct {
 var allExpressions Expressions
 var curID int
 
+func changeStatus(expr expressionJSON) {
+	for i := 0; i < len(allExpressions.Expressions); i++ {
+		if allExpressions.Expressions[i].ID == expr.ID {
+			allExpressions.Expressions[i].Status = expr.Status
+		}
+	}
+}
+
+func addAnswer(expr expressionJSON) {
+	for i := 0; i < len(allExpressions.Expressions); i++ {
+		if allExpressions.Expressions[i].ID == expr.ID {
+			allExpressions.Expressions[i].Status = expr.Status
+			allExpressions.Expressions[i].Result = expr.Result
+		}
+	}
+}
+
 func CalcHandler(w http.ResponseWriter, r *http.Request) {
 	var mu sync.Mutex
 	mu.Lock()
@@ -276,28 +295,25 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		newExpres := expressionJSON{ID: curID, Status: http.StatusBadRequest, Result: 0}
 		allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
-
-		// type ErrStr struct {
-		// 	Error string `json:"error"`
-		// }
-		// ansJson := ErrStr{Error: "Request is not valid"}
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(AnsJSON{ID: curID})
-		// http.Error(w, err.Error(), http.StatusBadRequest) не понятно???
 		return
+	} else { // если само выражение поучено не важно какое, то добавим в map со всеми выражениями AllExpressions
+		newExpres := expressionJSON{ID: curID, Status: http.StatusCreated, Result: 0}
+		allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 	}
 
 	result, err := Calc(request.Expression, curID)
 	//fmt.Println(result)
 	if err != nil {
-		// "error": "Expression is not valid"
-		type ErrStr struct {
-			Error string `json:"error"`
-		}
 		w.Header().Set("Content-Type", "application/json")
 		if errors.Is(err, calculation.ErrInvalidExpression) {
 			newExpres := expressionJSON{ID: curID, Status: http.StatusBadRequest, Result: 0}
-			allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+			changeStatus(newExpres)
 
 			//ansJson := ErrStr{Error: "Expression is not valid"}
 			w.WriteHeader(http.StatusBadRequest)
@@ -305,7 +321,7 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("err: %s", err.Error())
 		} else if errors.Is(err, calculation.ErrStrangeSymbols) {
 			newExpres := expressionJSON{ID: curID, Status: http.StatusUnprocessableEntity, Result: 0}
-			allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+			changeStatus(newExpres)
 
 			// ansJson := ErrStr{Error: "Expression is not valid"}
 			w.WriteHeader(http.StatusUnprocessableEntity)
@@ -313,7 +329,7 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("err: %s", err.Error())
 		} else {
 			newExpres := expressionJSON{ID: curID, Status: http.StatusInternalServerError, Result: 0}
-			allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+			changeStatus(newExpres)
 
 			// ansJson := ErrStr{Error: "Internal server error"}
 			w.WriteHeader(http.StatusInternalServerError)
@@ -327,7 +343,7 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		// }
 
 		newExpres := expressionJSON{ID: curID, Status: http.StatusOK, Result: result}
-		allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
+		addAnswer(newExpres)
 
 		// convRes := fmt.Sprintf("%f", result)
 		// ansJson := ResStr{Result: string(convRes)}
@@ -432,6 +448,7 @@ func TaskHandlerPOST(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Данные успешно получены"))
 	allresults[data.ID] = data.Result
+	fmt.Println("AllResults --- ", allresults)
 }
 
 func GetResultOperation(w http.ResponseWriter, r *http.Request) {
@@ -457,7 +474,7 @@ func GetResultOperation(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(resJSON{ID: id, Result: 0})
+		json.NewEncoder(w).Encode(resJSON{})
 	}
 }
 
