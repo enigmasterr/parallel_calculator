@@ -158,7 +158,6 @@ func Calc(expression string, id int) (float64, error) {
 			st = st[:len(st)-1]
 		}
 	}
-	fmt.Println("Стек -- ", ans) // стек с выражением
 	var stk []float64
 	for _, v := range ans {
 		if v == "+" || v == "-" || v == "*" || v == "/" {
@@ -191,7 +190,6 @@ func Calc(expression string, id int) (float64, error) {
 			}
 			for {
 				addr := fmt.Sprintf("http://localhost:8080/internal/getresult/%d", id)
-				fmt.Println("Trying to get result of operation")
 				resp, err := http.Get(addr)
 				fmt.Println(resp)
 				if err != nil {
@@ -224,27 +222,8 @@ func Calc(expression string, id int) (float64, error) {
 	if len(stk) != 1 {
 		return 0, calculation.ErrInvalidExpression
 	}
-	fmt.Println("Hello from calc! ", stk)
 	return stk[0], nil
 }
-
-// func getResult(id int) (float64, error) {
-// 	resp, err := http.Get("http://localhost:8080/internal/getresult")
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	type resJSON struct {
-// 		ID     int     `json:"id"`
-// 		Result float64 `json:"result"`
-// 	}
-// 	var res resJSON
-// 	err = json.NewDecoder(resp.Body).Decode(&res)
-// 	fmt.Println(res)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	return res.Result, nil
-// }
 
 type Request struct {
 	Expression string `json:"expression"`
@@ -299,7 +278,7 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 		return
-	} else { // если само выражение поучено не важно какое, то добавим в map со всеми выражениями AllExpressions
+	} else { // если само выражение получено не важно какое, то добавим в map со всеми выражениями AllExpressions
 		newExpres := expressionJSON{ID: curID, Status: http.StatusCreated, Result: 0}
 		allExpressions.Expressions = append(allExpressions.Expressions, newExpres)
 		w.Header().Set("Content-Type", "application/json")
@@ -308,7 +287,6 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := Calc(request.Expression, curID)
-	//fmt.Println(result)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		if errors.Is(err, calculation.ErrInvalidExpression) {
@@ -353,7 +331,6 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("send json {\"result\": \"%s\"}", string(fmt.Sprintf("%d", curID)))
 		// fmt.Fprintf(w, "result: %f", result)
 	}
-	fmt.Println(allExpressions) // just for debug, delete after all
 }
 
 func ExprHandler(w http.ResponseWriter, r *http.Request) {
@@ -392,20 +369,7 @@ func ExprIDHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//	type TaskF struct {
-//		ID             int     `json:"id"`
-//		Arg1           float64 `json:"arg1"`
-//		Arg2           float64 `json:"arg2"`
-//		Operation      string  `json:"operation"`
-//		Operation_time int     `json:"operation_time"`
-//	}
-//
-//	type Task struct {
-//		Task TaskF `json:"task"`
-//	}
-
 func TaskHandlerGET(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Task Handler GET ")
 	var task TaskF
 	if len(allTasks) > 0 { // в этом блоке у нас есть задача
 		for _, value := range allTasks {
@@ -420,6 +384,7 @@ func TaskHandlerGET(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		log.Printf("Данные отправлены агенту: %+v\n", task)
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound) // 404 Not Found
@@ -431,7 +396,6 @@ func TaskHandlerGET(w http.ResponseWriter, r *http.Request) {
 }
 
 func TaskHandlerPOST(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("TaskHandlerPOST ---- ")
 	type taskAns struct {
 		ID     int     `json:"id"`
 		Result float64 `json:"result"`
@@ -439,26 +403,20 @@ func TaskHandlerPOST(w http.ResponseWriter, r *http.Request) {
 
 	var data taskAns
 	err := json.NewDecoder(r.Body).Decode(&data)
-	fmt.Println("Get answer from agent -- ", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Printf("Получены данные: %+v\n", data)
+	log.Printf("Данные от агента получены: %+v\n", data)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Данные успешно получены"))
+	//w.Write([]byte("Данные успешно получены"))
 	allresults[data.ID] = data.Result
-	fmt.Println("AllResults --- ", allresults)
 }
 
 func GetResultOperation(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	id, err := strconv.Atoi(idStr)
-	fmt.Printf("Trying to find result in map id with number %d\n", id)
-	fmt.Println("AllExpressions = ", allExpressions)
-	fmt.Println("AllTasks = ", allTasks)
-	fmt.Println("Allresults = ", allresults)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return

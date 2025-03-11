@@ -24,10 +24,8 @@ type Task struct {
 
 func getTask() (*TaskF, error) {
 	resp, err := http.Get("http://localhost:8080/internal/task")
-	fmt.Println("Trying to get task")
-	fmt.Println("Agent, getTask ", resp)
 	if err != nil {
-		log.Fatalf("Ошибка при выполнении запроса: %v", err)
+		log.Printf("Ошибка при выполнении запроса: %v\n", err)
 	}
 	defer resp.Body.Close()
 
@@ -35,20 +33,19 @@ func getTask() (*TaskF, error) {
 		if resp.StatusCode == http.StatusNotFound {
 			log.Println("Задача не найдена.")
 		} else {
-			log.Fatalf("Unexpected status code: %d", resp.StatusCode)
+			log.Printf("Unexpected status code: %d\n", resp.StatusCode)
 		}
 	}
 
 	var task TaskF
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("Error reading response body: %v", err)
+		log.Printf("Error reading response body: %v\n", err)
 	}
 
 	if err = json.Unmarshal(data, &task); err != nil {
-		log.Fatalf("Error unmarshaling JSON: %v", err)
+		log.Printf("Error unmarshaling JSON: %v\n", err)
 	}
-	fmt.Println("Agent getting task from orchestrator and got that --- ", task)
 	return &task, nil
 }
 
@@ -93,17 +90,18 @@ func main() {
 			defer wg.Done()
 			for {
 				task, err := getTask()
-				fmt.Println("Answer taken --- ", task)
 				if err != nil {
 					fmt.Errorf("Some trouble getting task")
 				}
 				if task != nil {
+					log.Printf("Данные от оркестратора получены: %+v\n", task)
 					res := computeTask(task)
-					fmt.Println("Result of operation ---- ", res)
+					log.Printf("Получен результат работы операции: %+v\n", res)
 					err := sendResult(res, task.ID)
 					if err != nil {
 						fmt.Printf("Some problem occured in sending %v", err)
 					}
+					log.Println("Результат операции отравлен оркестратору!")
 				} else {
 					log.Printf("Worker dont get any task(((")
 				}
