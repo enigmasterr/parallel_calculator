@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -84,24 +85,31 @@ func sendResult(res float64, id int) error {
 }
 
 func main() {
+	var wg sync.WaitGroup
 
-	for {
-		task, err := getTask()
-		fmt.Println("Answer taken --- ", task)
-		if err != nil {
-			fmt.Errorf("Some trouble getting task")
-		}
-		if task != nil {
-			res := computeTask(task)
-			fmt.Println("Result of operation ---- ", res)
-			err := sendResult(res, task.ID)
-			if err != nil {
-				fmt.Printf("Some problem occured in sending %v", err)
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				task, err := getTask()
+				fmt.Println("Answer taken --- ", task)
+				if err != nil {
+					fmt.Errorf("Some trouble getting task")
+				}
+				if task != nil {
+					res := computeTask(task)
+					fmt.Println("Result of operation ---- ", res)
+					err := sendResult(res, task.ID)
+					if err != nil {
+						fmt.Printf("Some problem occured in sending %v", err)
+					}
+				} else {
+					log.Printf("Worker dont get any task(((")
+				}
+				time.Sleep(3 * time.Second)
 			}
-		} else {
-			log.Printf("Worker dont get any task(((")
-		}
-		time.Sleep(3 * time.Second)
+		}()
 	}
-
+	wg.Wait()
 }
