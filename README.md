@@ -33,19 +33,21 @@ go run agent/main.go - запуск агента, по умолчанию пор
 
 ## Схема работы приложения!
 
-Все результаты выражения хранятся в срезе Allexpressions - [{id1, status1, result1}, {id2, status2, result2}, ...]
-Все задания агенту находятся в map allTasks [id1: {id1, arg1, arg2, op1, op_time1}, id2: ...., ]
-Все результаты находятся в map allresults [{id1: res1}, {id2: res2}, {id2: res2}, ... ]
-
-Нужно быть в папке с клонированным проектом!
-
-cmd1 -- go run cmd/main.go   - поднимаем сервер(оркестратор)
-cmd2 -- go run agent/main.go - запускаем агента
-cmd3 -- пишем запросы на вычисление выражения curl ...
+Все результаты выражения хранятся в срезе Allexpressions - [{id1, status1, result1}, {id2, status2, result2}, ...]  
+Все задания агенту находятся в map allTasks [id1: {id1, arg1, arg2, op1, op_time1}, id2: ...., ]  
+Все результаты находятся в map allresults [{id1: res1}, {id2: res2}, {id2: res2}, ... ]  
 
 
+!Нужно быть в папке с клонированным проектом!
 
-```          "api/v1/calculate"        |---------------|    "internal/task", POST            |---------|```                ```Calchandler               |               |   <---------------------------      |         |          ```   
+cmd1 -- go run cmd/main.go   - поднимаем сервер(оркестратор)  
+cmd2 -- go run agent/main.go - запускаем агента  
+cmd3 -- пишем запросы на вычисление выражения curl ...  
+
+
+
+```          "api/v1/calculate"        |---------------|    "internal/task", POST            |---------|```    
+             Calchandler               |               |   <---------------------------      |         |          ```   
 ```cmd3 ---- отправка выражения -----> |  Оркестратор  |        {id, result}                 |  Агент  |```
 ```           {"expression":"..."}     |               |                                     |         |```            
 ```                                    |               |      "internal/task", GET           |         |```
@@ -56,9 +58,9 @@ cmd3 -- пишем запросы на вычисление выражения c
          "api/v1/expressions"         |-------------|  
 cmd3 <------------------------------> | Оркестратор |  
       [{id1, status1, result1}, ...]  |             |  
-          "api/v1/expressions/:id"    |             |  
-     <------------------------------> |-------------|  
-          {id, status, result}    
+10&nbsp;10&nbsp;10&nbsp;10&nbsp;"api/v1/expressions/:id"    |             |  
+10&nbsp;10&nbsp;10&nbsp;10&nbsp;10&nbsp;<------------------------------> |-------------|  
+10&nbsp;10&nbsp;10&nbsp;10&nbsp;{id, status, result}    
 
 
 ```                    Оркестратор                     ```
