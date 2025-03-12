@@ -58,9 +58,9 @@ cmd3 -- пишем запросы на вычисление выражения c
          "api/v1/expressions"         |-------------|  
 cmd3 <------------------------------> | Оркестратор |  
       [{id1, status1, result1}, ...]  |             |  
-10&nbsp;10&nbsp;10&nbsp;10&nbsp;"api/v1/expressions/:id"    |             |  
-10&nbsp;10&nbsp;10&nbsp;10&nbsp;10&nbsp;<------------------------------> |-------------|  
-10&nbsp;10&nbsp;10&nbsp;10&nbsp;{id, status, result}    
+          "api/v1/expressions/:id"    |             |  
+     <------------------------------> |-------------|  
+           {id, status, result}  
 
 
 ```                    Оркестратор                     ```
