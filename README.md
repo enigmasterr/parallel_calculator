@@ -94,7 +94,7 @@ cmd3 -- пишем запросы на вычисление выражения `
 
 запускаем тесты (тесты запускались в windows 11). Необходимо открыть еще одну командную строку (cmd) и отправить тесты ниже:
 
-1. Корректные запросы 
+#### 1. Корректные запросы 
 ```
 curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"2+2*9\"}" http://localhost:8080/api/v1/calculate
 ```
@@ -111,7 +111,7 @@ curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"(2+3)*9\
 Ответ: 200, ```{"result": 36}```  
 
 
-2. Некорректные запросы
+#### 2. Некорректные запросы
 ```
 curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"(2+2*9\"}" http://localhost:8080/api/v1/calculate
 ```
