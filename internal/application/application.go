@@ -14,17 +14,24 @@ import (
 	"time"
 
 	"github.com/enigmasterr/parallel_calculator/pkg/calculation"
-
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
 	Addr string
 }
 
+var PORT string
+
 func ConfigFromEnv() *Config {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Ошибка загрузки .env файла: %v", err)
+	}
 	config := new(Config)
 	config.Addr = os.Getenv("PORT")
+	PORT = config.Addr
 	if config.Addr == "" {
 		config.Addr = "8080"
 	}
@@ -190,7 +197,7 @@ func Calc(expression string, id int) (float64, error) {
 				//stk = append(stk, b/a) // нужно отправить таск на "/"
 			}
 			for {
-				addr := fmt.Sprintf("http://localhost:8080/internal/getresult/%d", id)
+				addr := fmt.Sprintf("http://localhost:%v/internal/getresult/%d", PORT, id)
 				resp, err := http.Get(addr)
 				fmt.Println(resp)
 				if err != nil {
@@ -445,8 +452,6 @@ func (a *Application) RunServer() error {
 	router.HandleFunc("/internal/task", TaskHandlerGET).Methods("GET")
 	router.HandleFunc("/internal/task", TaskHandlerPOST).Methods("POST")
 	router.HandleFunc("/internal/getresult/{id}", GetResultOperation).Methods("GET")
-	// http.HandleFunc("/api/v1/calculate", CalcHandler)
-	// http.HandleFunc("/api/v1/expressions", ExprHandler)
-	// http.HandleFunc("/api/v1/expressions/:id", ExprIDHandler)
+
 	return http.ListenAndServe(":"+a.config.Addr, router)
 }
