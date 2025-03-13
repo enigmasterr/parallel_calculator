@@ -294,24 +294,24 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 			changeStatus(newExpres)
 
 			//ansJson := ErrStr{Error: "Expression is not valid"}
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(AnsJSON{ID: curID})
+			//w.WriteHeader(http.StatusBadRequest)
+			//json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 			log.Printf("err: %s", err.Error())
 		} else if errors.Is(err, calculation.ErrStrangeSymbols) {
 			newExpres := expressionJSON{ID: curID, Status: http.StatusUnprocessableEntity, Result: 0}
 			changeStatus(newExpres)
 
 			// ansJson := ErrStr{Error: "Expression is not valid"}
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(AnsJSON{ID: curID})
+			//w.WriteHeader(http.StatusUnprocessableEntity)
+			//json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 			log.Printf("err: %s", err.Error())
 		} else {
 			newExpres := expressionJSON{ID: curID, Status: http.StatusInternalServerError, Result: 0}
 			changeStatus(newExpres)
 
 			// ansJson := ErrStr{Error: "Internal server error"}
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(AnsJSON{ID: curID})
+			// w.WriteHeader(http.StatusInternalServerError)
+			// json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 			log.Printf("err: %s", err.Error())
 		}
 
@@ -325,9 +325,9 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 
 		// convRes := fmt.Sprintf("%f", result)
 		// ansJson := ResStr{Result: string(convRes)}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(AnsJSON{ID: curID})
+		//w.Header().Set("Content-Type", "application/json")
+		//w.WriteHeader(http.StatusOK)
+		//json.NewEncoder(w).Encode(AnsJSON{ID: curID})
 		log.Printf("send json {\"result\": \"%s\"}", string(fmt.Sprintf("%d", curID)))
 		// fmt.Fprintf(w, "result: %f", result)
 	}
