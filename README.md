@@ -87,19 +87,41 @@ cmd3 -- пишем запросы на вычисление выражения `
 
 запускаем тесты (тесты запускались в windows 11). Необходимо открыть еще одну командную строку (cmd) и отправить тесты ниже:
 
-```curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"2+2*9\"}" http://localhost:8080/api/v1/calculate```
+1. Корректные запросы 
+```
+curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"2+2*9\"}" http://localhost:8080/api/v1/calculate
+```
+Ответ: 200, ```{"result": 18}```
 
-```curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"(2+2*9\"}" http://localhost:8080/api/v1/calculate```
+```  
+curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"1/2\"}" http://localhost:8080/api/v1/calculate  
+```  
+Ответ: 200, ```{"result": 0.5}```  
 
-```curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"yy2+2*9\"}" http://localhost:8080/api/v1/calculate```
+```  
+curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"(2+3)*9\"}" http://localhost:8080/api/v1/calculate  
+```  
+Ответ: 200, ```{"result": 36}```  
 
-```curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"2+2*9\"}" http://localhost:8080/api/v1/calculate```
 
-```curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"/\"}" http://localhost:8080/api/v1/calculate```
+2. Некорректные запросы
+```
+curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"(2+2*9\"}" http://localhost:8080/api/v1/calculate
+```
 
-```curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"1/2\"}" http://localhost:8080/api/v1/calculate```
+Ответ: 400, ```{"result": 0}```
 
-```curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"(2+3)*9\"}" http://localhost:8080/api/v1/calculate```
+```
+curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"yy2+2*9\"}" http://localhost:8080/api/v1/calculate
+```
+
+Ответ: 422, ```{"result": 0}```
+
+```
+curl -X POST -H "Content-Type: application/json" -d "{\"expression\": \"/\"}" http://localhost:8080/api/v1/calculate
+```
+Ответ: 400, ```{"result": 0}```
+
 
 ** Программа логирует запросы и ответы в консоль!
 
