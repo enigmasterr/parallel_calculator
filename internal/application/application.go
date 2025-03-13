@@ -98,6 +98,7 @@ func Calc(expression string, id int) (float64, error) {
 	num := ""
 	charset := "+-*/()0123456789"
 	strange := false
+	expression = strings.ReplaceAll(expression, " ", "")
 	for _, sim := range expression {
 		if !strings.ContainsRune(charset, sim) {
 			strange = true
